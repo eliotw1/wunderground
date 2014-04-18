@@ -7,7 +7,7 @@
 //
 
 #import "TWUViewController.h"
-
+#import <AFNetworking.h>
 @interface TWUViewController ()
 
 @end
@@ -16,7 +16,18 @@
 
 - (void)fetchCurrentTemperature
 {
-    self.temperature = @"30";
+    NSURL *URL = [NSURL URLWithString:@"http://api.wunderground.com/api/9ceac7e6eae5cd1e/conditions/q/MI/Detroit.json"];
+    NSURLRequest *request = [NSURLRequest requestWithURL:URL];
+    AFHTTPRequestOperation *op = [[AFHTTPRequestOperation alloc] initWithRequest:request];
+    op.responseSerializer = [AFJSONResponseSerializer serializer];
+    [op setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
+        self.temperature = responseObject[@"current_observation"][@"temperature_string"];
+        self.tempLabel.text = responseObject[@"current_observation"][@"temperature_string"];
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        NSLog(@"Error: %@", error);
+    }];
+    [[NSOperationQueue mainQueue] addOperation:op];
+
 }
 
 - (void)viewDidLoad

@@ -8,12 +8,7 @@
 
 #import <Kiwi/Kiwi.h>
 #import "TWUViewController.h"
-
-//@interface TWUViewController ()
-//
-//- (void)fetchCurrentTemperature;
-//
-//@end
+#import <AFNetworking.h>
 
 
 SPEC_BEGIN(TWUViewControllerSpec)
@@ -27,11 +22,8 @@ SPEC_BEGIN(TWUViewControllerSpec)
             beforeEach(^{
                  [viewController viewDidLoad];
             });
-           it(@"sets a current temp", ^{
+            it(@"sets a current temp", ^{
                [[viewController.temperature shouldNot] beNil];
-           });
-            xit(@"displays the current temp", ^{
-                [[viewController.tempLabel.text should] equal:viewController.temperature];
             });
             it(@"sets current city", ^{
                 [[viewController.city shouldNot] beNil];
@@ -41,13 +33,49 @@ SPEC_BEGIN(TWUViewControllerSpec)
             });
         });
         context(@"when we call FetchCurrentTemperature", ^{
-            it(@"Sets a different temperature from current temp", ^{
-                viewController.temperature = @"300000";
-                [viewController fetchCurrentTemperature];
-                [[viewController.temperature shouldNot] equal:@"300000"];
+            context(@"when the network call succeeds", ^{
+                __block void (^successBlock) (AFHTTPRequestOperation *operation, id responseObject);
+                __block KWCaptureSpy *successBlockSpy;
+                __block NSDictionary *mockJSON;
+                
+                beforeEach(^{
+                    NSURL *mockUrl = [NSURL nullMock];
+                    [NSURL stub:@selector(URLWithString:) andReturn:mockUrl];
+                    
+                    NSURLRequest *mockRequest = [NSURLRequest nullMock];
+                    [NSURLRequest stub:@selector(requestWithURL:) andReturn:mockRequest withArguments:mockUrl];
+                    AFHTTPRequestOperation *mockOp = [AFHTTPRequestOperation nullMock];
+                    [AFHTTPRequestOperation stub:@selector(alloc) andReturn:mockOp];
+                    [mockOp stub:@selector(initWithRequest:) andReturn:mockOp withArguments:mockRequest];
+                    
+                    [AFJSONRequestSerializer stub:@selector(serializer) andReturn:[AFJSONRequestSerializer nullMock]];
+                    
+                    mockJSON = @{@"current_observation":@{@"temperature_string": @"67"}};
+                    
+                    NSOperationQueue *mockOperationQueue = [NSOperationQueue nullMock];
+                    [NSOperationQueue stub:@selector(mainQueue) andReturn:mockOperationQueue];
+                    [mockOperationQueue stub:@selector(addOperation:) withArguments:any()];
+                    
+                    successBlockSpy = [mockOp captureArgument:@selector(setCompletionBlockWithSuccess:failure:) atIndex:0];
+                    
+                    [viewController fetchCurrentTemperature];
+                });
+                it(@"parses the JSON from Wunderground", ^{
+                    [[viewController should] receive:@selector(setTemperature:) withArguments:@"67"];
+                    
+                    successBlock = successBlockSpy.argument;
+                    successBlock(nil, mockJSON);
+                });
+                it(@"should display the temperature in the view", ^{
+                    viewController.tempLabel = [[UILabel alloc]init];
+                    [[viewController.tempLabel should] receive:@selector(setText:) withArguments:@"67"];
+                    
+                    successBlock = successBlockSpy.argument;
+                    successBlock(nil, mockJSON);
+                });
             });
         });
-    
     });
-	
+
+
 SPEC_END
